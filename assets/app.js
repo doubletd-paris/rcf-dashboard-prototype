@@ -20,11 +20,15 @@ function showSection(id, push = true){
 
   if (!built[id]){ buildSection(id); built[id] = true; }
 
-  /* a canvas sized while hidden needs a nudge once it is on screen */
-  document.querySelectorAll('#view-' + id + ' canvas').forEach(c => {
+  /* a canvas sized while hidden needs a nudge once it is on screen — once
+     now, and once after layout has settled, since a container measured in
+     the same frame as the display change can still report zero */
+  const nudge = () => document.querySelectorAll('#view-' + id + ' canvas').forEach(c => {
     const ch = Chart.getChart(c);
-    if (ch) ch.resize();
+    if (ch && c.clientWidth) ch.resize();
   });
+  nudge();
+  requestAnimationFrame(nudge);
 
   if (push && location.hash.slice(2) !== id) history.replaceState(null, '', '#/' + id);
   window.scrollTo({ top:0, behavior: 'instant' in window ? 'instant' : 'auto' });
@@ -62,6 +66,14 @@ function buildSection(id){
     buildPricingChart('bondPricing', DATA.greenBond.pricing);
     buildDonut('bondUseOfProceeds', DATA.greenBond.useOfProceeds);
     buildBridgeChart('bridgeChart', DATA.greenBond.bridge);
+  }
+  if (id === 'rcf'){
+    /* rcf.js builds these at load, while this section is still display:none,
+       so the canvases measure 0×0 and Chart.js sizes to nothing. Rebuild them
+       now the container has a real width instead of relying on a resize to
+       rescue a zero-sized canvas. */
+    buildBalanceChart();
+    buildRateChart();
   }
   if (id === 'covenants') renderGauges();
 }
