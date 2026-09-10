@@ -383,3 +383,59 @@ footer.page-foot b{color:var(--ink);font-weight:600}
 /* overview totals strip */
 .gauge-meta.totals-strip{grid-template-columns:repeat(4,1fr)}
 @media (max-width:760px){ .gauge-meta.totals-strip{grid-template-columns:repeat(2,1fr)} }
+
+/* =========================================================================
+   Green bond monitoring + Euro market dashboard
+   ========================================================================= */
+
+/* --- term sheet tables (label / value pairs) --- */
+table.mg.terms tbody th{
+  text-align:left;font-weight:600;color:var(--slate);font-size:11.5px;
+  padding:8px 12px 8px 10px;border-bottom:1px solid var(--hair-2);
+  width:42%;vertical-align:top;background:none;
+}
+table.mg.terms tbody td{font-variant-numeric:tabular-nums}
+table.mg.terms tbody tr:nth-child(odd){background:var(--band-2)}
+
+/* --- TradingView panels --- */
+.tv-panel{border:1px solid var(--hair);border-radius:var(--radius);overflow:hidden}
+.tv-head{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:10px 14px;background:var(--band);border-bottom:1px solid var(--hair);
+}
+.tv-head .tv-symbol{font-size:12.5px;color:var(--slate)}
+.tv-head .tv-symbol b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.tv-frame{height:460px;width:100%;background:var(--card)}
+.tv-frame iframe{width:100%!important;height:100%!important;border:0}
+.tv-fallback{padding:26px 22px;background:var(--band-2);text-align:center}
+.tv-fallback p{margin:0 0 12px;font-size:13px;color:var(--slate);max-width:64ch;margin-inline:auto}
+.tv-fallback p:last-child{margin-bottom:0}
+.tv-fallback b{color:var(--ink)}
+.tv-fallback .btn{text-decoration:none}
+
+/* --- market dashboard table --- */
+table.mg.board thead th{background:var(--mg-teal)}
+table.mg.board tbody tr:nth-child(odd){background:none}
+table.mg.board tbody tr:hover{background:var(--band-2)}
+table.mg.board tbody tr.band-row{background:#8FA3A5}
+table.mg.board tbody tr.band-row:hover{background:#8FA3A5}
+table.mg.board tbody tr.band-row th{
+  text-align:left;color:#fff;font-weight:600;font-size:11.5px;padding:6px 10px;
+  border-bottom:1px solid var(--hair-2);
+}
+table.mg.board tbody tr.band-row td{
+  color:#fff;font-size:11px;font-weight:600;padding:6px 10px;border-bottom:1px solid var(--hair-2);
+}
+table.mg.board td.strong{font-weight:600;color:var(--ink)}
+table.mg.board td.move{font-weight:600}
+table.mg.board td.move.up{color:#C0392B}
+table.mg.board td.move.dn{color:#2F7D3A}
+table.mg.board td.move.flat{color:var(--muted)}
+table.mg.board td.muted{color:var(--muted)}
+
+@media (max-width:760px){
+  .tv-frame{height:340px}
+  table.mg.terms tbody th{width:50%}
+}
+
+.pill.nocaps{text-transform:none}

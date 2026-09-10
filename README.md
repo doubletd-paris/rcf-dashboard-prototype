@@ -13,16 +13,41 @@ the quarterly report (31 March 2026).
 | **Debt Mix** | Donuts by instrument type, by lender, by currency and jurisdiction | `DATA.debtMix` |
 | **Maturity Profile** | Stacked bar of maturities by year and instrument, dual-axis LTV vs cost of debt, maturity ladder table | `DATA.maturity` |
 | **RCF** | The original RCF prototype — ledger, capacity bar, balance and rate charts — unchanged | `assets/rcf.js` |
-| **Green Bond** | Debut issuance placeholders: pricing build-up, use of proceeds, bridge-to-bond path | `DATA.greenBond` |
-| **Covenants & Headroom** | LTV and ICR gauges against configurable thresholds, facility-level headroom table | `DATA.covenants` |
+| **Green Bond** | Project Langford monitoring: executed term sheet, TradingView charts, spread since pricing, pricing build-up, use of proceeds, bridge-to-bond | `DATA.greenBond` |
+| **Covenants & Headroom** | LTV and ICR gauges against configurable thresholds, facility-level headroom, bond incurrence tests | `DATA.covenants` |
+| **Market Dashboard** | Govvies, midswaps, credit indices, fund credit, commodities and equities with DoD / WoW / YTD moves | `app.py` · `DATA.marketBoard` |
 
-Everything outside the RCF tab is **placeholder sample data**, seeded from the
-Q1 2026 report so the charts look realistic. Replace it in `assets/data.js`.
+`DATA.greenBond.terms` holds the **executed** Project Langford term sheet and is
+factual. Everything else is **placeholder sample data**, seeded from the Q1 2026
+report and recomputed to include the new issue. Replace it in `assets/data.js`.
+
+### Green bond monitoring
+
+The Green Bond tab is the monitoring view for the EUR 500m 4.000% green notes
+due 2031 (ISIN XS3498808651, priced 3 September 2026).
+
+TradingView is embedded through its **advanced-chart widget**, configured in
+`DATA.greenBond.tradingView`. Two things to know:
+
+- A saved TradingView layout (`tradingview.com/chart/<id>/`) **cannot be put in
+  an iframe** — it needs a logged-in session and the site refuses to be framed.
+  So the in-page chart uses the widget, and the saved layout is offered as an
+  "Open in TradingView" link beside it.
+- The widget resolves instruments as `EXCHANGE:TICKER`. A raw ISIN usually does
+  **not** resolve. If a panel reports an unknown symbol, search the bond on
+  TradingView, copy the symbol it shows, and paste it into
+  `DATA.greenBond.tradingView.primary.symbol`. For the Hines overlay, add the
+  peer to `comparison.compareSymbols` as
+  `[{ symbol: "EXCHANGE:TICKER", position: "SameScale" }]`.
+
+If the widget cannot load — blocked script or unknown symbol — the panel shows a
+fallback card with the TradingView link rather than an empty box. The
+Chart.js "spread since pricing" panel below it does not depend on TradingView.
 
 ## Files
 
 ```
-index.html          markup for all six sections; no logic
+index.html          markup for all seven sections; no logic
 app.py              Flask server + the market data hook (get_market_data)
 assets/mg.css       M&G design system — palette, typography, components
 assets/fonts.css    embedded webfont faces
@@ -45,8 +70,9 @@ market panel then falls back to `DATA.marketFallback` in `assets/data.js`.
 
 ## Connecting the market data feed
 
-The "Live market data" panel reads one endpoint, `GET /api/market-data`, served
-by `get_market_data()` in `app.py`. That function is the only thing to change:
+The Overview panel and the Market Dashboard tab both read one endpoint,
+`GET /api/market-data`, served by `get_market_data()` in `app.py`. That
+function is the only thing to change:
 point it at the internal feed (or set `MARKET_DATA_SOURCE=internal` and fill in
 the branch) and keep the response shape:
 
@@ -56,10 +82,20 @@ the branch) and keep the response shape:
   "delayed": false,
   "asOf": "2026-03-31T17:00:00Z",
   "rates": [
-    {"key": "eur_swap_5y", "label": "EUR swap 5Y", "value": 2.35, "unit": "%", "change": 0.04}
+    {"key": "eur_swap_5y", "label": "EUR swap 5Y", "value": 3.15, "unit": "%", "change": 0.02}
+  ],
+  "board": [
+    {"name": "Govvies", "unit": "bp", "dir": "rates", "rows": [
+      {"label": "Bund 5-year", "today": "3.00%", "dod": 2, "wow": 2, "ytd": 56}
+    ]}
   ]
 }
 ```
+
+`rates` feeds the Overview strip; `board` feeds the Market Dashboard. Each board
+section sets `dir`, which picks the colour convention: `rates` and `risk` read as
+a cost, so a rise shows red; `assets` reads as performance, so a rise shows
+green.
 
 The panel renders whatever rates it is given, in order, with no front-end
 change. `delayed: true` keeps the amber **"Indicative, delayed data"** badge;

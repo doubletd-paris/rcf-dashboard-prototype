@@ -204,7 +204,7 @@ function buildPricingChart(id, rows){
   return mount(id, {
     type: 'bar',
     data: {
-      labels: ['Indicative all-in'],
+      labels: ['As executed'],
       datasets: rows.map(r => ({
         label: r.label,
         data: [r.value],
@@ -228,7 +228,7 @@ function buildPricingChart(id, rows){
         tooltip: {
           callbacks: {
             label: c => ` ${c.dataset.label}: ${c.parsed.x}bps`,
-            footer: () => `All-in: ${total}bps (${(total / 100).toFixed(2)}%)`,
+            footer: () => `Re-offer yield: ${(total / 100).toFixed(3)}%`,
           },
         },
       },
@@ -264,6 +264,51 @@ function buildBridgeChart(id, b){
       plugins: {
         legend: { position:'bottom' },
         tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${eurM(c.parsed.y)}` } },
+      },
+    },
+  });
+}
+
+/* ============== green bond: Z-spread since pricing (vs peer) =========== */
+function buildSpreadChart(id, gb){
+  const h = gb.secondary.history;
+  const reoffer = gb.terms.spreadToMs;
+  return mount(id, {
+    type: 'line',
+    data: {
+      labels: h.labels,
+      datasets: [
+        {
+          label: 'Langford 4.000% 2031',
+          data: h.langfordSpread,
+          borderColor: tone('--c-teal'), backgroundColor: tone('--c-teal'),
+          borderWidth: 2.4, pointRadius: 3.5, pointHoverRadius: 5.5, tension: 0.2, fill: false,
+        },
+        {
+          label: gb.tradingView.comparison.peerLabel,
+          data: h.peerSpread,
+          borderColor: tone('--c-orchid'), backgroundColor: tone('--c-orchid'),
+          borderWidth: 2, pointRadius: 3, tension: 0.2, fill: false,
+        },
+        {
+          label: 'Re-offer spread (+' + reoffer + 'bp)',
+          data: h.labels.map(() => reoffer),
+          borderColor: '#0C5C60', borderWidth: 1.3, borderDash: [5, 4],
+          pointRadius: 0, fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      scales: {
+        x: AXIS_X,
+        y: { ...AXIS, ticks: { ...AXIS.ticks, callback: v => v + 'bp' } },
+      },
+      plugins: {
+        legend: { position:'bottom' },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}bp` } },
       },
     },
   });

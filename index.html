@@ -35,6 +35,7 @@
     <button class="tab" role="tab" data-section="rcf"        aria-controls="view-rcf"        aria-selected="false">RCF</button>
     <button class="tab" role="tab" data-section="green-bond" aria-controls="view-green-bond" aria-selected="false">Green Bond</button>
     <button class="tab" role="tab" data-section="covenants"  aria-controls="view-covenants"  aria-selected="false">Covenants &amp; Headroom</button>
+    <button class="tab" role="tab" data-section="market"     aria-controls="view-market"     aria-selected="false">Market Dashboard</button>
   </div>
 </nav>
 
@@ -226,29 +227,82 @@
   <!-- ============================= GREEN BOND =========================== -->
   <section class="view" id="view-green-bond" role="tabpanel">
     <div class="section-head">
-      <h2>Green bond</h2>
-      <p>Debut senior unsecured issuance in preparation, and the bridge-to-bond path that carries the fund to it. Every figure here is an indicative placeholder.</p>
+      <h2>Green bond — Project Langford</h2>
+      <p>EUR 500m 4.000% senior unsecured green notes due 2031, issued under the €3bn EMTN programme. Executed terms, secondary monitoring and relative value against the peer curve.</p>
     </div>
 
     <div class="placeholder-note">
-      <b>Indicative only.</b>
-      <span>Size, tenor, pricing and use-of-proceeds are working assumptions in <code>DATA.greenBond</code>, not terms.
-      Replace them once the mandate and framework are agreed.</span>
+      <b>Terms are final.</b>
+      <span>The term sheet below is the executed deal (priced 3 September 2026, settled 10 September 2026). Secondary prices, spreads and the peer comparison are placeholders in <code>DATA.greenBond.secondary</code> until a price feed is connected.</span>
     </div>
 
-    <section class="kpis" id="bondKpis"></section>
+    <section class="kpis six" id="bondKpis"></section>
+
+    <!-- ---------------------- live monitoring ---------------------- -->
+    <h3 class="subhead">Secondary monitoring</h3>
+
+    <section class="panel">
+      <div class="phead">
+        <h3>Langford 4.000% 2031 — TradingView</h3>
+      </div>
+      <p class="note">
+        Live chart for <b id="tvPrimarySymbol"></b>. TradingView addresses instruments as EXCHANGE:TICKER, so if the
+        panel reports an unknown symbol, search the bond on TradingView and paste its symbol into
+        <code>DATA.greenBond.tradingView.primary.symbol</code>.
+      </p>
+      <div class="tv-panel" id="tvPrimary" data-tv="primary"></div>
+    </section>
+
+    <section class="panel" style="margin-top:20px">
+      <div class="phead">
+        <h3>Relative value — Langford vs Hines comparable</h3>
+      </div>
+      <p class="note">
+        Overlay against the Hines euro benchmark issued in July 2026. Add the peer's TradingView symbol to
+        <code>DATA.greenBond.tradingView.comparison.compareSymbols</code> to plot both on one scale.
+      </p>
+      <div class="tv-panel" id="tvComparison" data-tv="comparison"></div>
+    </section>
+
+    <div class="grid g-2-1" style="margin-top:20px">
+      <section class="panel">
+        <div class="phead"><h3>Spread since pricing</h3></div>
+        <p class="note">Z-spread in basis points, Langford against the peer, from the pricing date. The dashed line is the +100bp re-offer spread.</p>
+        <div class="chart-box h-300"><canvas id="spreadChart"></canvas></div>
+      </section>
+
+      <section class="panel">
+        <div class="phead"><h3>Where it trades</h3></div>
+        <p class="note">Versus the re-offer level. Negative spread change means the bond has tightened since pricing.</p>
+        <div id="secondaryStrip"></div>
+        <p class="footnote" id="secondaryCaption"></p>
+      </section>
+    </div>
+
+    <!-- ---------------------- executed terms ---------------------- -->
+    <h3 class="subhead">Term sheet</h3>
+    <div class="grid g-2">
+      <section class="panel">
+        <div class="phead"><h3>Economics</h3></div>
+        <table class="mg terms" id="termsEconomics"></table>
+      </section>
+      <section class="panel">
+        <div class="phead"><h3>Structure &amp; documentation</h3></div>
+        <table class="mg terms" id="termsStructure"></table>
+      </section>
+    </div>
 
     <div class="grid g-2" style="margin-top:20px">
       <section class="panel">
-        <div class="phead"><h3>Indicative pricing build-up</h3></div>
-        <p class="note">Mid-swap reference plus credit spread and new issue premium, in basis points.</p>
+        <div class="phead"><h3>Pricing build-up, as executed</h3></div>
+        <p class="note">Mid-swap reference plus the spread to mid-swaps, in basis points.</p>
         <div class="chart-box h-260"><canvas id="bondPricing"></canvas></div>
         <p class="footnote" id="bondPricingReadout"></p>
       </section>
 
       <section class="panel">
         <div class="phead"><h3>Use of proceeds — eligible categories</h3></div>
-        <p class="note">Share of the eligible asset pool by green framework category, %.</p>
+        <p class="note">Share of the eligible asset pool by green framework category, %. Second party opinion: Sustainable Fitch, 26 August 2026.</p>
         <div class="chart-box h-260"><canvas id="bondUseOfProceeds"></canvas></div>
       </section>
     </div>
@@ -256,16 +310,39 @@
     <section class="panel" style="margin-top:20px">
       <div class="phead"><h3>Bridge to bond</h3></div>
       <p class="note">
-        Placeholder for the bridge-to-bond tool. The RCF is built up ahead of issuance, then partly taken out with
-        bond proceeds — keeping cash on the balance sheet low rather than pre-funding. Dashed line is the €300m
-        committed RCF.
+        RCF build-up ahead of issuance, then partial take-out with bond proceeds — keeping cash on the balance sheet
+        low rather than pre-funding. Dashed line is the €300m committed RCF. Forward quarters are placeholders.
       </p>
       <div class="chart-box h-340"><canvas id="bridgeChart"></canvas></div>
     </section>
 
     <p class="footnote">
-      When the bridge-to-bond tool is built out it can take this section's shape — or move to a tab of its own by
-      adding an entry to <code>SECTIONS</code> in <code>assets/app.js</code> and a matching <code>.view</code> block here.
+      Term sheet figures are from the executed deal. Nothing on this page is a valuation, a price or an investment
+      recommendation; secondary levels shown are indicative and not executable.
+    </p>
+  </section>
+
+  <!-- ========================= MARKET DASHBOARD ========================= -->
+  <section class="view" id="view-market" role="tabpanel">
+    <div class="section-head">
+      <h2>Euro market dashboard</h2>
+      <p>Reference levels across govvies, midswaps, credit, the fund's own paper, commodities and equities, with day, week and year-to-date moves.</p>
+    </div>
+
+    <div class="market" style="margin-bottom:18px">
+      <div class="mhead">
+        <span class="t">Market indicators</span>
+        <span class="badge" id="boardBadge">Indicative, delayed data</span>
+      </div>
+      <div style="overflow-x:auto"><table class="mg board" id="boardTable"></table></div>
+      <div class="caption" id="boardCaption"></div>
+    </div>
+
+    <p class="footnote">
+      Rates and spreads follow a cost convention: a rise shows red, a fall green. Commodities and equities follow a
+      performance convention: a rise shows green. Levels come from the same swappable source as the Overview panel —
+      <b>app.py → <code>get_market_data()</code></b>, which returns a <code>board</code> block; the page falls back to
+      <code>DATA.marketBoard</code> when that endpoint is unavailable.
     </p>
   </section>
 
@@ -322,6 +399,15 @@
       <div class="phead"><h3>Facility-level covenant headroom</h3></div>
       <p class="note">Headroom in percentage points against each facility's own tested covenants. A dash means the facility is not tested on that measure.</p>
       <div style="overflow-x:auto"><table class="mg" id="covenantTable"></table></div>
+    </section>
+
+    <section class="panel" style="margin-top:20px">
+      <div class="phead"><h3>Bond incurrence tests — Langford 4.000% 2031</h3></div>
+      <p class="note">
+        Financial covenants from the term sheet. These are incurrence tests, applied pro forma when additional debt is
+        raised, not maintenance covenants tested each quarter. Actuals are placeholders until the reporting pack is wired in.
+      </p>
+      <div style="overflow-x:auto"><table class="mg" id="bondCovenantTable"></table></div>
     </section>
 
     <p class="footnote">
