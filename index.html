@@ -279,6 +279,68 @@
       </section>
     </div>
 
+    <!-- ---------------------- mark to market ---------------------- -->
+    <h3 class="subhead">Mark-to-market — fund NAV</h3>
+
+    <div class="placeholder-note">
+      <b>Fund NAV only.</b>
+      <span>The fund NAV carries the notes at full fair value; the IFRS NAV keeps them at amortised cost, so the
+      two diverge. Enter the current yield to maturity below &mdash; there is no price feed connected, and
+      <code>DATA.greenBond.mtm</code> holds the default.</span>
+    </div>
+
+    <section class="controls" style="margin-bottom:16px">
+      <div class="field">
+        <label for="mtmYield">Yield to maturity, %</label>
+        <input id="mtmYield" type="number" step="0.005" min="0.5" max="12" inputmode="decimal">
+      </div>
+      <div class="field" style="flex:1;min-width:240px">
+        <label for="mtmRange">Drag to reprice</label>
+        <input id="mtmRange" type="range" min="3" max="6" step="0.005" style="width:100%;accent-color:var(--mg-green)">
+      </div>
+      <div class="field">
+        <label for="mtmDate">Valuation date</label>
+        <input id="mtmDate" type="date">
+      </div>
+      <div class="field" style="flex-direction:row;gap:6px;flex-wrap:wrap;align-items:center" id="mtmPresets"></div>
+    </section>
+
+    <section class="kpis three" id="mtmKpis"></section>
+
+    <section class="panel" style="margin-top:20px">
+      <div class="phead">
+        <h3>From market move to NAV</h3>
+        <span class="r" id="mtmStamp"></span>
+      </div>
+      <p class="note">
+        Each block is an impact on fund NAV, built up from zero. Green adds to NAV, orange reduces it, teal is the
+        net position. The market move is read off the clean price; issue costs and accrued coupon are what separate
+        it from the number NAV actually reports.
+      </p>
+      <div class="chart-box h-340"><canvas id="mtmChart"></canvas></div>
+    </section>
+
+    <div class="grid g-2" style="margin-top:20px">
+      <section class="panel">
+        <div class="phead"><h3>Reconciliation</h3></div>
+        <p class="note">The notes are a liability, so a fall in their value is a gain to NAV.</p>
+        <div style="overflow-x:auto"><table class="mg" id="mtmRecon"></table></div>
+      </section>
+      <section class="panel">
+        <div class="phead"><h3>Sensitivity</h3></div>
+        <p class="note">At the valuation date above. Duration is about 4.4 years, so roughly &euro;0.22m per basis point.</p>
+        <div style="overflow-x:auto"><table class="mg" id="mtmSens"></table></div>
+      </section>
+    </div>
+
+    <p class="footnote">
+      <b>Pull to par.</b> The gain is a timing effect, not value created &mdash; held to maturity the liability
+      converges on 100 and the mark unwinds to zero. Issue costs are expensed in full on day one under fair value,
+      where IFRS amortises them over five years through the effective interest rate. No optionality is valued;
+      the make-whole call and change of control put are immaterial at current levels. Quarterly valuations are
+      performed by IHS Markit on a bid-side composite, typically a few basis points wide of the last trade.
+    </p>
+
     <!-- ---------------------- executed terms ---------------------- -->
     <h3 class="subhead">Term sheet</h3>
     <div class="grid g-2">
@@ -465,6 +527,7 @@
 <script src="assets/data.js"></script>
 <script src="assets/charts.js"></script>
 <script src="assets/rcf.js"></script>
+<script src="assets/mtm.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

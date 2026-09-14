@@ -67,6 +67,7 @@ function buildSection(id){
     buildDonut('bondUseOfProceeds', DATA.greenBond.useOfProceeds);
     buildBridgeChart('bridgeChart', DATA.greenBond.bridge);
     buildSpreadChart('spreadChart', DATA.greenBond);
+    if (MTM.repaint) MTM.repaint();
     mountTradingView('tvPrimary');
     mountTradingView('tvComparison');
   }
@@ -477,6 +478,7 @@ function boot(){
   renderDebtMixTotals();
   renderMaturityTable();
   renderGreenBond();
+  renderMtm();
   renderBondCovenants();
   renderBoard();
   initCovenantControls();

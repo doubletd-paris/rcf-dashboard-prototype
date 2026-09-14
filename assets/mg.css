@@ -148,6 +148,13 @@ main{padding:30px 0 60px}
 /* =============================== KPIs ================================== */
 .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
 .kpis.six{grid-template-columns:repeat(6,1fr)}
+.kpis.three{grid-template-columns:repeat(3,1fr)}
+
+/* mark-to-market: gain adds to NAV, loss reduces it — same semantics as the
+   market panel, where coral is an adverse move and green a favourable one */
+table.mg td.gain{color:var(--ok);font-weight:600}
+table.mg td.loss{color:#B4552F;font-weight:600}
+table.mg td small{color:var(--slate);font-weight:400;margin-left:6px}
 .kpi{
   background:var(--card);border:1px solid var(--hair);border-radius:var(--radius);
   padding:15px 16px 14px;box-shadow:var(--shadow);border-top:3px solid var(--mg-green);
@@ -375,6 +382,7 @@ footer.page-foot b{color:var(--ink);font-weight:600}
 .rate-fields.hidden{max-height:0;opacity:0;margin:0}
 
 @media (max-width:900px){ .kpis.six{grid-template-columns:repeat(3,1fr)} }
+@media (max-width:760px){ .kpis.three{grid-template-columns:1fr} }
 @media (max-width:560px){ .cost{grid-template-columns:1fr} }
 @media (prefers-reduced-motion:reduce){ .seg{transition:none} }
 

@@ -153,6 +153,26 @@ const DATA = {
       targetMarket: 'Eligible counterparties and professional clients only (MiFID II)',
     },
 
+    /* --- mark-to-market inputs ------------------------------------------
+       The Fund NAV carries the notes at full fair value; the IFRS NAV keeps
+       them at amortised cost. Only the four values below need touching.
+
+       netProceeds is the ALL-IN figure from the Pricing Supplement
+       (EUR 493,095,000) — gross 494.845 less both the 0.30% base fee and
+       the 0.05% discretionary fee. terms.netProceeds above is 493.345,
+       which excludes the discretionary fee; the bridge uses the all-in
+       number because that is the cash the fund actually received.
+       -------------------------------------------------------------------- */
+    mtm: {
+      yieldPct: 4.500,                       // current yield to maturity, %
+      valuationDate: '2026-09-14',
+      netProceeds: 493.095,                  // €m, all-in cash received
+      interestCommencement: '2026-09-10',
+      maturity: '2031-09-10',
+      sensitivity: [4.233, 4.250, 4.500, 4.750, 5.000],
+      valuer: 'IHS Markit, quarterly, bid-side composite',
+    },
+
     /* --- TradingView embeds -----------------------------------------------
        `symbol` values are passed straight to the TradingView advanced-chart
        widget. TradingView addresses instruments as EXCHANGE:TICKER — a raw
