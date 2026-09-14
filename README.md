@@ -67,6 +67,21 @@ The pricer is validated against the deal itself: at the 4.233% re-offer yield
 on the settlement date it returns a clean price of 98.9695 against the term
 sheet's 98.969% issue price.
 
+The yield box defaults to the latest level available — the live feed first,
+then `secondary.langford.yield`, then `mtm.yieldPct` — valued as at today. If
+the feed carries a price but no yield, the yield is solved from the price.
+A typed yield stands until **Reset**, which restores both the default yield
+and today's date.
+
+The waterfall switches between two bases:
+
+- **Fund NAV, fair value** — issue costs land in full on day one.
+- **P&L, amortised cost** — issue costs and discount are released over the
+  life, so that block grows with the valuation date.
+
+The P&L panel splits the charge into cash coupon and amortisation, since
+issue and year to date, alongside the unamortised balance still carried.
+
 ## Files
 
 ```

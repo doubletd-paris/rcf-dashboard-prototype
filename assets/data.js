@@ -164,8 +164,12 @@ const DATA = {
        number because that is the cash the fund actually received.
        -------------------------------------------------------------------- */
     mtm: {
-      yieldPct: 4.500,                       // current yield to maturity, %
-      valuationDate: '2026-09-14',
+      /* The yield box defaults to the latest level available, in this order:
+         the live feed (app.py `bond`), then secondary.langford below, then
+         yieldPct here as a last resort. A yield the user types always wins
+         until Reset is pressed. */
+      yieldPct: 4.500,                       // fallback yield to maturity, %
+      valuationDate: null,                   // null means today
       netProceeds: 493.095,                  // €m, all-in cash received
       interestCommencement: '2026-09-10',
       maturity: '2031-09-10',

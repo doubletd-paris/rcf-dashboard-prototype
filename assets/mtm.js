@@ -119,6 +119,45 @@ const MTM = (() => {
     };
   }
 
+  /* ---------- yield implied by a clean price -------------------------
+     The pricer is monotonic in yield, so the inverse is a bisection. Used
+     when the feed carries a price but no yield.
+     ------------------------------------------------------------------- */
+  function yieldFromPrice(cleanPrice, settleMs){
+    const { t, bounds } = ctx();
+    let lo = 0.01, hi = 40;
+    for (let i = 0; i < 200; i++){
+      const mid = (lo + hi) / 2;
+      if (priceAt(mid, settleMs, bounds, t.coupon).clean > cleanPrice) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
+
+  /* ---------- P&L interest expense between two dates -------------------
+     The increase in the liability plus any cash paid, split between the
+     cash coupon and the amortisation of issue costs and issue discount.
+     ------------------------------------------------------------------- */
+  function expenseBetween(aMs, bMs){
+    const r = eir();
+    const A = amortised(aMs, r), B = amortised(bMs, r);
+    const liabA = A.carryDirty + A.couponsPaid;
+    const liabB = B.carryDirty + B.couponsPaid;
+    const expense = liabB - liabA;
+    const coupon = (B.carryAccrued + B.couponsPaid) - (A.carryAccrued + A.couponsPaid);
+    return { expense, coupon, amortisation: expense - coupon, from: aMs, to: bMs };
+  }
+
+  /* ---------- annual P&L charge, one row per coupon period ---------- */
+  function annualExpense(){
+    const { bounds } = ctx();
+    const out = [];
+    for (let i = 0; i < bounds.length - 1; i++){
+      const e = expenseBetween(bounds[i], bounds[i + 1]);
+      out.push({ label: String(new Date(bounds[i + 1]).getUTCFullYear()), ...e });
+    }
+    return out;
+  }
+
   /* ---------- amortisation schedule, one row per coupon period ---------- */
   function amortisationSchedule(){
     const { bounds } = ctx();
@@ -157,6 +196,19 @@ const MTM = (() => {
       px: p, bounds, settleMs, yieldPct,
       gross, net, issueCost, cleanVal, accVal, dirtyVal, couponsPaid,
       market, accrued: accVal, nav, am, ifrsNav, navGap,
+
+      /* the same period on the IFRS basis: issue costs and the issue
+         discount are released over the life, so this block moves with the
+         valuation date rather than landing in full on day one */
+      pnlSteps: [
+        { key:'amort', label:'Costs & discount', sub:'amortised to date', value:-am.amortisationToDate, kind:'delta',
+          note:`€${am.amortisationToDate.toFixed(3)}m of the €${am.totalToAmortise.toFixed(3)}m raised at issue has been released to P&L; €${am.unamortised.toFixed(3)}m is still carried on the balance sheet.` },
+        { key:'coupon', label:'Coupon', sub:'accrued and paid', value:-am.cashCouponToDate, kind:'delta',
+          note:`${t.coupon.toFixed(3)}% on ${t.dayCount.split('·')[0].trim()}${am.couponsPaid ? `, including €${am.couponsPaid.toFixed(3)}m paid` : ''}.` },
+        { key:'expense', label:'Interest expense', sub:'since issue', value:-am.interestToDate, kind:'total',
+          note:`Effective interest at ${am.eir.toFixed(3)}% on the carrying amount.` },
+      ],
+
       steps: [
         { key:'cost',   label:'Issue costs',       sub:'expensed day one', value:-issueCost, kind:'delta',
           note:`Gross issue value €${gross.toFixed(3)}m less net proceeds €${net.toFixed(3)}m. A fair-value NAV does not capitalise these, so they land in full on day one.` },
@@ -170,7 +222,8 @@ const MTM = (() => {
     };
   }
 
-  return { bridge, priceAt, schedule, parseISO, fmtDate, eir, amortised, amortisationSchedule };
+  return { bridge, priceAt, schedule, parseISO, fmtDate, eir, amortised, amortisationSchedule,
+           yieldFromPrice, expenseBetween, annualExpense, ctx };
 })();
 
 
@@ -244,7 +297,7 @@ function mtmBars(steps){
   });
 }
 
-function buildMtmChart(id, b){
+function buildMtmChart(id, steps, axisTitle){
   const el = document.getElementById(id);
   if (!el) return null;
   const existing = Chart.getChart(el);
@@ -252,11 +305,12 @@ function buildMtmChart(id, b){
   /* repricing only changes numbers, so update the live chart in place */
   if (existing && existing.data.datasets[0].steps){
     const ds = existing.data.datasets[0];
-    ds.data = mtmBars(b.steps);
-    ds.steps = b.steps;
-    ds.backgroundColor = b.steps.map(s =>
+    ds.data = mtmBars(steps);
+    ds.steps = steps;
+    ds.backgroundColor = steps.map(s =>
       s.kind === 'total' ? MTM_COLOR.total : (s.value >= 0 ? MTM_COLOR.gain : MTM_COLOR.loss));
-    existing.data.labels = b.steps.map(s => [s.label, s.sub]);
+    existing.data.labels = steps.map(s => [s.label, s.sub]);
+    existing.options.scales.y.title.text = axisTitle;
     existing.update('none');
     return existing;
   }
@@ -265,11 +319,11 @@ function buildMtmChart(id, b){
     type: 'bar',
     plugins: [mtmLabels],
     data: {
-      labels: b.steps.map(s => [s.label, s.sub]),
+      labels: steps.map(s => [s.label, s.sub]),
       datasets: [{
-        data: mtmBars(b.steps),
-        steps: b.steps,
-        backgroundColor: b.steps.map(s =>
+        data: mtmBars(steps),
+        steps,
+        backgroundColor: steps.map(s =>
           s.kind === 'total' ? MTM_COLOR.total : (s.value >= 0 ? MTM_COLOR.gain : MTM_COLOR.loss)),
         borderRadius: 4,
         borderSkipped: false,
@@ -284,7 +338,7 @@ function buildMtmChart(id, b){
         x: { ...AXIS_X, ticks: { ...AXIS_X.ticks, autoSkip: false } },
         y: {
           ...AXIS,
-          title: { display: true, text: '€m impact on fund NAV', color: '#5F7C7E', font: { size: 11 } },
+          title: { display: true, text: axisTitle, color: '#5F7C7E', font: { size: 11 } },
           ticks: { ...AXIS.ticks, callback: v => Number(v).toFixed(1) },
         },
       },
@@ -347,6 +401,52 @@ function buildAmortChart(id, rows, markMs){
 }
 
 
+/* ---------- annual P&L charge: coupon against amortisation ---------- */
+function buildPnlChart(id, rows){
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const labels = rows.map(r => r.label);
+  const existing = Chart.getChart(el);
+  if (existing){
+    existing.data.labels = labels;
+    existing.data.datasets[0].data = rows.map(r => r.coupon);
+    existing.data.datasets[1].data = rows.map(r => r.amortisation);
+    existing.update('none');
+    return existing;
+  }
+  return mount(id, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label:'Cash coupon', data: rows.map(r => r.coupon),
+          backgroundColor: tone('--c-teal'), borderRadius:3, borderSkipped:false, barPercentage:0.62 },
+        { label:'Amortisation of costs and discount', data: rows.map(r => r.amortisation),
+          backgroundColor: tone('--c-amber'), borderRadius:3, borderSkipped:false, barPercentage:0.62 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      scales: {
+        x: { ...AXIS_X, stacked:true },
+        y: { ...AXIS, stacked:true, beginAtZero:true,
+             ticks:{ ...AXIS.ticks, callback: v => '€' + Number(v).toFixed(0) + 'm' } },
+      },
+      plugins: {
+        legend: { position:'bottom' },
+        tooltip: {
+          callbacks: {
+            label: c => ` ${c.dataset.label}: €${c.parsed.y.toFixed(3)}m`,
+            footer: items => 'Interest expense: €' + items.reduce((a, i) => a + i.parsed.y, 0).toFixed(3) + 'm',
+          },
+        },
+      },
+    },
+  });
+}
+
+
 /* =========================================================================
    Render — controls, KPI cards, reconciliation, sensitivity, amortisation.
    ========================================================================= */
@@ -364,6 +464,30 @@ function renderMtm(){
 
   let userSetYield = false;     // a live default must not overwrite a typed value
   let queued = false;           // coalesce a drag into one repaint per frame
+  let basis = 'nav';            // 'nav' = fair value, 'pnl' = amortised cost
+  let liveYield = null;         // latest level from the feed, if one arrived
+
+  /* the default position: latest level available, valued today */
+  function defaults(){
+    const sec = DATA.greenBond.secondary || {};
+    const y = liveYield
+           ?? (sec.langford && Number(sec.langford.yield))
+           ?? cfg.yieldPct;
+    const first = MTM.parseISO(cfg.interestCommencement);
+    const last = MTM.parseISO(cfg.maturity) - 86400000;
+    const now = Date.now();
+    const d = new Date(Math.min(Math.max(MTM.parseISO(cfg.valuationDate) || now, first), last));
+    return { yieldPct: Number(y), dateISO: d.toISOString().slice(0, 10) };
+  }
+
+  function applyDefaults(){
+    const d = defaults();
+    yEl.value = d.yieldPct.toFixed(3);
+    rEl.value = d.yieldPct;
+    dEl.value = d.dateISO;
+    userSetYield = false;
+    paint();
+  }
 
   function paint(){
     let y = parseFloat(yEl.value);
@@ -469,8 +593,49 @@ function renderMtm(){
       btn.classList.toggle('primary', Math.abs(parseFloat(btn.dataset.y) - y) < 1e-9);
     });
 
-    buildMtmChart('mtmChart', b);
+    /* --- P&L for the period, the amortised-cost view --- */
+    const fyStart = Math.max(MTM.parseISO(cfg.interestCommencement),
+                             Date.UTC(new Date(settle).getUTCFullYear(), 0, 1));
+    const fy = MTM.expenseBetween(fyStart, settle);
+    document.getElementById('mtmPnl').innerHTML = `
+      <thead><tr><th>P&amp;L charge</th><th class="num">Since issue €m</th><th class="num">Year to date €m</th></tr></thead>
+      <tbody>
+        <tr><td>Cash coupon <small>accrued and paid</small></td>
+            <td class="num">${am.cashCouponToDate.toFixed(3)}</td>
+            <td class="num">${fy.coupon.toFixed(3)}</td></tr>
+        <tr><td>Amortisation of issue costs and discount</td>
+            <td class="num">${am.amortisationToDate.toFixed(3)}</td>
+            <td class="num">${fy.amortisation.toFixed(3)}</td></tr>
+        <tr><td><b>Interest expense</b> <small>effective interest at ${am.eir.toFixed(3)}%</small></td>
+            <td class="num loss"><b>${am.interestToDate.toFixed(3)}</b></td>
+            <td class="num loss"><b>${fy.expense.toFixed(3)}</b></td></tr>
+        <tr><td>Unamortised balance still on the balance sheet</td>
+            <td class="num strong">${am.unamortised.toFixed(3)}</td>
+            <td class="num muted">—</td></tr>
+      </tbody>`;
+    const fyNote = document.getElementById('mtmPnlNote');
+    if (fyNote) fyNote.textContent =
+      `Year to date runs from ${MTM.fmtDate(fyStart)} to ${MTM.fmtDate(settle)}.`;
+
+    /* --- waterfall, on the selected basis --- */
+    document.querySelectorAll('#mtmBasis .btn').forEach(btn =>
+      btn.classList.toggle('primary', btn.dataset.basis === basis));
+    const useP = basis === 'pnl';
+    buildMtmChart('mtmChart', useP ? b.pnlSteps : b.steps,
+                  useP ? '€m charged to P&L' : '€m impact on fund NAV');
+    document.getElementById('mtmChartTitle').textContent =
+      useP ? 'Interest expense since issue' : 'From market move to fund NAV';
+    document.getElementById('mtmChartNote').innerHTML = useP
+      ? `On the amortised-cost basis the issue costs and the issue discount are released over the life of the
+         notes, so this block grows with the valuation date rather than landing in full on day one. At this date
+         <b>€${am.amortisationToDate.toFixed(3)}m</b> of the <b>€${am.totalToAmortise.toFixed(3)}m</b> has been
+         charged and <b>€${am.unamortised.toFixed(3)}m</b> is still carried.`
+      : `Each block is an impact on fund NAV, built up from zero. Green adds to NAV, orange reduces it, teal is the
+         net position. Fair value expenses the issue costs on day one; switch to the P&amp;L basis to see the
+         unamortised balance instead.`;
+
     buildAmortChart('mtmAmortChart', MTM.amortisationSchedule(), settle);
+    buildPnlChart('mtmPnlChart', MTM.annualExpense());
     return b;
   }
 
@@ -491,28 +656,48 @@ function renderMtm(){
     yEl.value = btn.dataset.y; rEl.value = btn.dataset.y; schedulePaint();
   });
 
+  const resetBtn = document.getElementById('mtmReset');
+  if (resetBtn) resetBtn.addEventListener('click', applyDefaults);
+
+  const basisEl = document.getElementById('mtmBasis');
+  if (basisEl) basisEl.addEventListener('click', e => {
+    const btn = e.target.closest('.btn');
+    if (!btn) return;
+    basis = btn.dataset.basis;
+    paint();
+  });
+
   /* presets come from the sensitivity ladder so there is one list to edit */
   document.getElementById('mtmPresets').innerHTML = cfg.sensitivity.map(v =>
     `<button type="button" class="btn" data-y="${v}">${v.toFixed(3)}%${
       Math.abs(v - t.reofferYield) < 1e-9 ? ' re-offer' : ''}</button>`).join('');
 
-  yEl.value = cfg.yieldPct.toFixed(3);
-  rEl.value = cfg.yieldPct;
-  dEl.value = cfg.valuationDate;
   dEl.min = cfg.interestCommencement;
   dEl.max = cfg.maturity;
+  const d0 = defaults();
+  yEl.value = d0.yieldPct.toFixed(3);
+  rEl.value = d0.yieldPct;
+  dEl.value = d0.dateISO;
 
   /* a live yield from the feed seeds the default, unless the user has
      already typed one */
   MTM.applyLive = live => {
-    if (!live || !isFinite(live.yield) || userSetYield) return;
-    yEl.value = Number(live.yield).toFixed(3);
-    rEl.value = live.yield;
-    paint();
+    if (!live) return;
+    const settle = MTM.parseISO(dEl.value) || MTM.parseISO(defaults().dateISO);
+    const y = isFinite(live.yield) ? Number(live.yield)
+            : (isFinite(live.price) ? MTM.yieldFromPrice(Number(live.price), settle) : NaN);
+    if (!isFinite(y)) return;
+    liveYield = y;
     const el = document.getElementById('mtmLiveNote');
-    if (el) el.textContent = `Seeded from the live yield, ${Number(live.yield).toFixed(3)}%.`;
+    if (el) el.textContent = `Default is the latest level, ${y.toFixed(3)}%` +
+      (isFinite(live.yield) ? '.' : ` (implied by the ${Number(live.price).toFixed(3)} price).`);
+    if (userSetYield) return;          // a typed yield stands until Reset
+    yEl.value = y.toFixed(3);
+    rEl.value = y;
+    paint();
   };
 
   MTM.repaint = paint;
+  MTM.reset = applyDefaults;
   paint();
 }

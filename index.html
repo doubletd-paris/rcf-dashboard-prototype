@@ -302,22 +302,42 @@
         <input id="mtmDate" type="date">
       </div>
       <div class="field" style="flex-direction:row;gap:6px;flex-wrap:wrap;align-items:center" id="mtmPresets"></div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button type="button" class="btn" id="mtmReset" title="Back to the latest level, valued today">↺ Reset</button>
+      </div>
     </section>
 
     <section class="kpis four" id="mtmKpis"></section>
 
     <section class="panel" style="margin-top:20px">
       <div class="phead">
-        <h3>From market move to fund NAV</h3>
+        <h3 id="mtmChartTitle">From market move to fund NAV</h3>
         <span class="r" id="mtmStamp"></span>
       </div>
-      <p class="note">
-        Each block is an impact on fund NAV, built up from zero. Green adds to NAV, orange reduces it, teal is the
-        net position. The market move is read off the clean price; issue costs and accrued coupon are what separate
-        it from the number NAV actually reports.
-      </p>
+      <div class="tf-row" id="mtmBasis">
+        <button type="button" class="btn primary" data-basis="nav">Fund NAV — fair value</button>
+        <button type="button" class="btn" data-basis="pnl">P&amp;L — amortised cost</button>
+      </div>
+      <p class="note" id="mtmChartNote"></p>
       <div class="chart-box h-340"><canvas id="mtmChart"></canvas></div>
     </section>
+
+    <div class="grid g-2-1" style="margin-top:20px">
+      <section class="panel">
+        <div class="phead"><h3>P&amp;L impact</h3></div>
+        <p class="note">
+          The charge is the cash coupon accrued plus the amortisation of the issue costs <i>and</i> the issue
+          discount, which the effective interest method releases together. <span id="mtmPnlNote"></span>
+        </p>
+        <div style="overflow-x:auto"><table class="mg" id="mtmPnl"></table></div>
+      </section>
+      <section class="panel">
+        <div class="phead"><h3>Charge by year</h3></div>
+        <p class="note">Coupon against amortisation over the life of the notes.</p>
+        <div class="chart-box h-300"><canvas id="mtmPnlChart"></canvas></div>
+      </section>
+    </div>
 
     <div class="grid g-2" style="margin-top:20px">
       <section class="panel">
