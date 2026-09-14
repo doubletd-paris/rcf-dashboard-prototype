@@ -255,7 +255,8 @@ function renderMtm(){
         <th>Line</th><th class="num">Price</th><th class="num">Value €m</th><th class="num">NAV impact €m</th>
       </tr></thead>
       <tbody>
-        <tr><td>Cash received at issue</td><td class="num">${t.allInPrice}</td>
+        <tr><td>Cash received at issue <small>all-in, after both fees</small></td>
+            <td class="num">${(b.net / t.size * 100).toFixed(3)}</td>
             <td class="num">${b.net.toFixed(3)}</td><td class="num">—</td></tr>
         <tr><td>Liability recognised at issue</td><td class="num">${t.issuePrice.toFixed(3)}</td>
             <td class="num">${b.gross.toFixed(3)}</td><td class="num">—</td></tr>
