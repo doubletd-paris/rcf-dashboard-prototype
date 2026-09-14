@@ -25,8 +25,18 @@ is served by get_market_data() below.
                "dod": 2, "wow": 2, "ytd": 56},
             ]},
             ...
-          ]
+          ],
+          "bond": {                       # Green Bond tab
+            "asOf": "...", "source": "...",
+            "langford": {"price": 99.15, "yield": 4.19, "zSpread": 96},
+            "peer":     {"price": 99.62, "yield": 4.24, "zSpread": 101},
+            "series": {"start": "2026-09-03T08:00:00Z", "stepHours": 4,
+                       "langfordZ": [...], "peerZ": [...]},
+          }
         }
+
+    The bond block drives the secondary levels, the spread chart and the
+    default yield on the mark-to-market section.
 
 If the endpoint is unavailable (for example on a purely static deployment)
 the page falls back to DATA.marketFallback in assets/data.js, so the layout
@@ -92,6 +102,19 @@ SAMPLE_BOARD = [
 ]
 
 
+# Secondary levels for the fund's own paper. TradingView cannot be read from
+# the browser page (its widget is a cross-origin iframe), so a live price for
+# the Green Bond tab has to arrive through this endpoint.
+SAMPLE_BOND = {
+    "source": "Indicative sample levels (app.py)",
+    "asOf": "14 September 2026",
+    "langford": {"price": 99.15, "yield": 4.19, "zSpread": 96},
+    "peer": {"price": 99.62, "yield": 4.24, "zSpread": 101},
+    # Omit "series" to keep the placeholder history in assets/data.js; supply
+    # it in the same shape (start, stepHours, langfordZ, peerZ) to replace it.
+}
+
+
 def get_market_data():
     """Return the indicative rates shown in the Overview market panel.
 
@@ -112,6 +135,7 @@ def get_market_data():
         "asOf": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "rates": SAMPLE_RATES,
         "board": SAMPLE_BOARD,
+        "bond": SAMPLE_BOND,
     }
 
 

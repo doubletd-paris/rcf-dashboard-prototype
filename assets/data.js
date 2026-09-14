@@ -199,45 +199,34 @@ const DATA = {
       theme: 'light',
     },
 
-    /* --- secondary monitoring: PLACEHOLDER until a feed is connected --- */
+    /* --- secondary monitoring ------------------------------------------
+       Levels and the mark-to-market default come from app.py first
+       (/api/market-data, the `bond` block) and fall back to the values
+       below when that endpoint is unavailable. TradingView cannot be read
+       from the page — its widget is a cross-origin iframe — so a live price
+       has to come through that endpoint.
+       -------------------------------------------------------------------- */
     secondary: {
-      asOf: '10 September 2026 close',
+      asOf: '14 September 2026',
       source: 'Placeholder (assets/data.js)',
-      price: 99.15,              // % of par
-      yield: 4.19,               // %
-      zSpread: 96,               // bp
-      spreadVsReoffer: -4,       // bp vs the +100bp re-offer spread
-      priceVsReoffer: 0.181,     // points vs the 98.969 issue price
-      // daily marks since pricing — Langford against the Hines comparable
-      history: {
-        labels: ['3 Sep','4 Sep','7 Sep','8 Sep','9 Sep','10 Sep'],
-        langfordSpread: [100, 99, 98, 97, 97, 96],
-        peerSpread:     [104, 103, 103, 102, 101, 101],
-        langfordPrice:  [98.969, 99.02, 99.06, 99.11, 99.12, 99.15],
+      langford: { price: 99.15, yield: 4.19, zSpread: 96 },
+      peer:     { price: 99.62, yield: 4.24, zSpread: 101 },
+
+      /* 4-hourly marks from pricing. Daily and weekly views resample this,
+         so only one series needs replacing when a feed is connected. */
+      series: {
+        start: '2026-09-03T08:00:00Z',
+        stepHours: 4,
+        langfordZ: [99.8,99.8,99.8,99.3,98.8,98.3,98.2,97.8,97.8,97.8,98.2,98.5,98.1,97.8,97.5,97.5,97.5,97.0,97.1,96.9,96.8,97.0,96.7,96.7,96.8,97.2,97.1,96.7,96.1,96.3,96.6,96.8,96.8,97.0,97.0,96.5,96.5,96.8,96.6,96.1,95.7,95.2,94.8,94.6,94.1,94.1,94.4,94.1,93.9,94.3,93.9,93.6,93.6,93.0,92.8,93.2,93.2,93.3,93.6,93.9,93.7,93.3,92.8,92.4,92.2,96.0],
+        peerZ:     [103.6,103.2,103.0,103.0,102.9,102.5,102.8,102.5,102.8,102.7,102.2,102.0,101.6,101.9,101.9,101.7,101.3,101.0,100.9,100.9,100.7,100.8,100.9,101.2,100.9,100.5,100.7,100.7,100.8,100.8,100.6,100.7,100.6,101.0,101.1,101.2,101.6,101.4,101.5,101.4,101.0,101.2,101.0,101.3,101.2,101.5,101.8,101.7,102.0,101.6,101.3,101.3,101.0,100.9,100.9,101.1,101.1,100.7,100.9,101.1,101.0,101.1,100.7,100.3,99.9,101.0],
       },
-    },
-
-    /* --- use of proceeds allocation (placeholder split) ---------------- */
-    useOfProceeds: [
-      { label:'Green buildings (certified)', value:46, color:'--c-green'  },
-      { label:'Energy efficiency retrofit',  value:24, color:'--c-teal'   },
-      { label:'Renewable energy on-site',    value:14, color:'--c-amber'  },
-      { label:'Clean transport / EV',        value:9,  color:'--c-orchid' },
-      { label:'Sustainable water',           value:7,  color:'--c-periwinkle' },
-    ],
-
-    /* --- pricing build-up, as executed (bp) --------------------------- */
-    pricing: [
-      { label:'EUR 5Y mid-swap (3.233%)', value:323, color:'--c-teal'  },
-      { label:'Spread to mid-swaps',      value:100, color:'--c-green' },
-    ],
-
-    /* --- bridge-to-bond: RCF build-up then take-out (placeholder) ------ */
-    bridge: {
-      labels: ['Q1 26','Q2 26','Q3 26','Q4 26e','Q1 27e'],
-      rcfDrawn:    [107.5, 210, 340, 140, 165],
-      bondOutstanding: [0, 0, 500, 500, 500],
-      rcfCommitment: 300,
+      /* chart timeframes; `hours` is the resampling bucket */
+      timeframes: [
+        { key:'4H', label:'4H', hours:4  },
+        { key:'1D', label:'Daily', hours:24 },
+        { key:'1W', label:'Weekly', hours:168 },
+      ],
+      defaultTimeframe: '1D',
     },
   },
 

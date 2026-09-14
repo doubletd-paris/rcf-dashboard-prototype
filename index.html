@@ -228,12 +228,12 @@
   <section class="view" id="view-green-bond" role="tabpanel">
     <div class="section-head">
       <h2>Green bond — Project Langford</h2>
-      <p>EUR 500m 4.000% senior unsecured green notes due 2031, issued under the €3bn EMTN programme. Executed terms, secondary monitoring and relative value against the peer curve.</p>
+      <p>EUR 500m 4.000% senior unsecured green notes due 2031, issued under the €3bn EMTN programme. Executed terms, secondary monitoring, and the fund NAV and IFRS NAV positions.</p>
     </div>
 
     <div class="placeholder-note">
       <b>Terms are final.</b>
-      <span>The term sheet below is the executed deal (priced 3 September 2026, settled 10 September 2026). Secondary prices, spreads and the peer comparison are placeholders in <code>DATA.greenBond.secondary</code> until a price feed is connected.</span>
+      <span>The term sheet below is the executed deal (priced 3 September 2026, settled 10 September 2026). Secondary levels come from <code>app.py → get_market_data()</code> when a feed is connected, and fall back to <code>DATA.greenBond.secondary</code> otherwise.</span>
     </div>
 
     <section class="kpis six" id="bondKpis"></section>
@@ -246,9 +246,8 @@
         <h3>Langford 4.000% 2031 — TradingView</h3>
       </div>
       <p class="note">
-        Live chart for <b id="tvPrimarySymbol"></b>. TradingView addresses instruments as EXCHANGE:TICKER, so if the
-        panel reports an unknown symbol, search the bond on TradingView and paste its symbol into
-        <code>DATA.greenBond.tradingView.primary.symbol</code>.
+        Live chart for <b id="tvPrimarySymbol"></b>. Change the instrument in
+        <code>DATA.greenBond.tradingView.primary.symbol</code>; the chart's own toolbar controls the timeframe.
       </p>
       <div class="tv-panel" id="tvPrimary" data-tv="primary"></div>
     </section>
@@ -258,35 +257,35 @@
         <h3>Relative value — Langford vs Hines comparable</h3>
       </div>
       <p class="note">
-        Overlay against the Hines euro benchmark issued in July 2026. Add the peer's TradingView symbol to
-        <code>DATA.greenBond.tradingView.comparison.compareSymbols</code> to plot both on one scale.
+        Both bonds on one scale. Add the peer's ISIN or TradingView symbol to
+        <code>DATA.greenBond.tradingView.comparison.compareSymbols</code> to plot the second line.
       </p>
-      <div class="tv-panel" id="tvComparison" data-tv="comparison"></div>
+      <div class="tv-panel tall" id="tvComparison" data-tv="comparison"></div>
     </section>
 
-    <div class="grid g-2-1" style="margin-top:20px">
-      <section class="panel">
-        <div class="phead"><h3>Spread since pricing</h3></div>
-        <p class="note">Z-spread in basis points, Langford against the peer, from the pricing date. The dashed line is the +100bp re-offer spread.</p>
-        <div class="chart-box h-300"><canvas id="spreadChart"></canvas></div>
-      </section>
-
-      <section class="panel">
-        <div class="phead"><h3>Where it trades</h3></div>
-        <p class="note">Versus the re-offer level. Negative spread change means the bond has tightened since pricing.</p>
-        <div id="secondaryStrip"></div>
-        <p class="footnote" id="secondaryCaption"></p>
-      </section>
-    </div>
+    <section class="panel" style="margin-top:20px">
+      <div class="phead">
+        <h3>Spread since pricing</h3>
+        <span class="r" id="spreadStamp"></span>
+      </div>
+      <p class="note">
+        Z-spread in basis points, Langford against the peer, from the pricing date. The dashed line is the +100bp
+        re-offer spread. The axis tracks the data rather than starting at zero, so it stays readable as the history grows.
+      </p>
+      <div class="tf-row" id="spreadTimeframes"></div>
+      <div class="chart-box h-340"><canvas id="spreadChart"></canvas></div>
+      <div id="secondaryStrip" style="margin-top:16px"></div>
+      <p class="footnote" id="secondaryCaption"></p>
+    </section>
 
     <!-- ---------------------- mark to market ---------------------- -->
-    <h3 class="subhead">Mark-to-market — fund NAV</h3>
+    <h3 class="subhead">Mark-to-market — fund NAV and IFRS NAV</h3>
 
     <div class="placeholder-note">
-      <b>Fund NAV only.</b>
-      <span>The fund NAV carries the notes at full fair value; the IFRS NAV keeps them at amortised cost, so the
-      two diverge. Enter the current yield to maturity below &mdash; there is no price feed connected, and
-      <code>DATA.greenBond.mtm</code> holds the default.</span>
+      <b>Two carrying bases.</b>
+      <span>The fund NAV carries the notes at full fair value; the IFRS NAV carries them at amortised cost, where
+      issue costs are released to P&amp;L over the life of the notes rather than expensed on day one. Enter a yield
+      to reprice. <span id="mtmLiveNote"></span></span>
     </div>
 
     <section class="controls" style="margin-bottom:16px">
@@ -305,11 +304,11 @@
       <div class="field" style="flex-direction:row;gap:6px;flex-wrap:wrap;align-items:center" id="mtmPresets"></div>
     </section>
 
-    <section class="kpis three" id="mtmKpis"></section>
+    <section class="kpis four" id="mtmKpis"></section>
 
     <section class="panel" style="margin-top:20px">
       <div class="phead">
-        <h3>From market move to NAV</h3>
+        <h3>From market move to fund NAV</h3>
         <span class="r" id="mtmStamp"></span>
       </div>
       <p class="note">
@@ -322,23 +321,35 @@
 
     <div class="grid g-2" style="margin-top:20px">
       <section class="panel">
-        <div class="phead"><h3>Reconciliation</h3></div>
+        <div class="phead"><h3>Fund NAV — fair value</h3></div>
         <p class="note">The notes are a liability, so a fall in their value is a gain to NAV.</p>
         <div style="overflow-x:auto"><table class="mg" id="mtmRecon"></table></div>
       </section>
       <section class="panel">
+        <div class="phead"><h3>IFRS NAV — amortised cost</h3></div>
+        <p class="note">Issue costs and the issue discount are capitalised at inception and released through the effective interest rate.</p>
+        <div style="overflow-x:auto"><table class="mg" id="mtmAmort"></table></div>
+      </section>
+    </div>
+
+    <div class="grid g-2-1" style="margin-top:20px">
+      <section class="panel">
+        <div class="phead"><h3>Unamortised balance over the life</h3></div>
+        <p class="note">Issue costs and discount still carried on the balance sheet at each coupon date, releasing to nil at maturity.</p>
+        <div class="chart-box h-300"><canvas id="mtmAmortChart"></canvas></div>
+      </section>
+      <section class="panel">
         <div class="phead"><h3>Sensitivity</h3></div>
-        <p class="note">At the valuation date above. Duration is about 4.4 years, so roughly &euro;0.22m per basis point.</p>
+        <p class="note">At the valuation date above. Modified duration is about 4.4 years, so roughly &euro;0.22m per basis point.</p>
         <div style="overflow-x:auto"><table class="mg" id="mtmSens"></table></div>
       </section>
     </div>
 
     <p class="footnote">
-      <b>Pull to par.</b> The gain is a timing effect, not value created &mdash; held to maturity the liability
-      converges on 100 and the mark unwinds to zero. Issue costs are expensed in full on day one under fair value,
-      where IFRS amortises them over five years through the effective interest rate. No optionality is valued;
-      the make-whole call and change of control put are immaterial at current levels. Quarterly valuations are
-      performed by IHS Markit on a bid-side composite, typically a few basis points wide of the last trade.
+      <b>Pull to par.</b> The fair-value gain is a timing effect, not value created &mdash; held to maturity the
+      liability converges on 100 and the mark unwinds to zero. The two NAVs converge at the same point: the
+      unamortised balance reaches nil and the carrying amount reaches par. No optionality is valued; the make-whole
+      call and change of control put are immaterial at current levels.
     </p>
 
     <!-- ---------------------- executed terms ---------------------- -->
@@ -353,30 +364,6 @@
         <table class="mg terms" id="termsStructure"></table>
       </section>
     </div>
-
-    <div class="grid g-2" style="margin-top:20px">
-      <section class="panel">
-        <div class="phead"><h3>Pricing build-up, as executed</h3></div>
-        <p class="note">Mid-swap reference plus the spread to mid-swaps, in basis points.</p>
-        <div class="chart-box h-260"><canvas id="bondPricing"></canvas></div>
-        <p class="footnote" id="bondPricingReadout"></p>
-      </section>
-
-      <section class="panel">
-        <div class="phead"><h3>Use of proceeds — eligible categories</h3></div>
-        <p class="note">Share of the eligible asset pool by green framework category, %. Second party opinion: Sustainable Fitch, 26 August 2026.</p>
-        <div class="chart-box h-260"><canvas id="bondUseOfProceeds"></canvas></div>
-      </section>
-    </div>
-
-    <section class="panel" style="margin-top:20px">
-      <div class="phead"><h3>Bridge to bond</h3></div>
-      <p class="note">
-        RCF build-up ahead of issuance, then partial take-out with bond proceeds — keeping cash on the balance sheet
-        low rather than pre-funding. Dashed line is the €300m committed RCF. Forward quarters are placeholders.
-      </p>
-      <div class="chart-box h-340"><canvas id="bridgeChart"></canvas></div>
-    </section>
 
     <p class="footnote">
       Term sheet figures are from the executed deal. Nothing on this page is a valuation, a price or an investment

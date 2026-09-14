@@ -198,112 +198,87 @@ function buildTrendChart(id, t){
   });
 }
 
-/* ======================= green bond: pricing bar ======================= */
-function buildPricingChart(id, rows){
-  const total = rows.reduce((a, r) => a + r.value, 0);
-  return mount(id, {
-    type: 'bar',
-    data: {
-      labels: ['As executed'],
-      datasets: rows.map(r => ({
-        label: r.label,
-        data: [r.value],
-        backgroundColor: tone(r.color),
-        borderRadius: 3,
-        borderSkipped: false,
-        barPercentage: 0.5,
-      })),
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode:'index', intersect:false },
-      scales: {
-        x: { ...AXIS, stacked:true, beginAtZero:true, ticks:{ ...AXIS.ticks, callback: v => v + 'bps' } },
-        y: { ...AXIS_X, stacked:true, ticks:{ display:false } },
-      },
-      plugins: {
-        legend: { position:'bottom' },
-        tooltip: {
-          callbacks: {
-            label: c => ` ${c.dataset.label}: ${c.parsed.x}bps`,
-            footer: () => `Re-offer yield: ${(total / 100).toFixed(3)}%`,
-          },
-        },
-      },
-    },
-  });
+/* ============== green bond: Z-spread since pricing (vs peer) ===========
+   The series is stored at its finest granularity (4-hourly) and resampled
+   for the coarser views, so only one series changes when a feed is wired
+   in. The x axis is a category axis that thins its own labels, so the
+   chart stays readable as the history since issuance grows.
+   ====================================================================== */
+
+/* last observation in each bucket, which is how a close is taken */
+function resample(series, bucketHours){
+  const step = series.stepHours || 4;
+  const per = Math.max(1, Math.round(bucketHours / step));
+  const t0 = Date.parse(series.start);
+  const out = { t: [], langford: [], peer: [] };
+  for (let i = per - 1; i < series.langfordZ.length; i += per){
+    out.t.push(t0 + i * step * 3600000);
+    out.langford.push(series.langfordZ[i]);
+    out.peer.push(series.peerZ[i]);
+  }
+  const lastIdx = series.langfordZ.length - 1;
+  if ((lastIdx - (per - 1)) % per !== 0){        // always keep the latest mark
+    out.t.push(t0 + lastIdx * step * 3600000);
+    out.langford.push(series.langfordZ[lastIdx]);
+    out.peer.push(series.peerZ[lastIdx]);
+  }
+  return out;
 }
 
-/* ================= green bond: bridge-to-bond take-out ================= */
-function buildBridgeChart(id, b){
-  return mount(id, {
-    type: 'bar',
-    data: {
-      labels: b.labels,
-      datasets: [
-        { label:'RCF drawn',        data:b.rcfDrawn,        backgroundColor:tone('--c-amber'), borderRadius:3, borderSkipped:false, barPercentage:0.62, order:2 },
-        { label:'Bond outstanding', data:b.bondOutstanding, backgroundColor:tone('--c-teal'),  borderRadius:3, borderSkipped:false, barPercentage:0.62, order:2 },
-        {
-          type:'line', label:'RCF commitment',
-          data: b.labels.map(() => b.rcfCommitment),
-          borderColor:'#0C5C60', borderWidth:1.4, borderDash:[5,4],
-          pointRadius:0, fill:false, order:1,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode:'index', intersect:false },
-      scales: {
-        x: { ...AXIS_X, stacked:true },
-        y: { ...AXIS, stacked:true, beginAtZero:true, ticks:{ ...AXIS.ticks, callback: v => '€' + v + 'm' } },
-      },
-      plugins: {
-        legend: { position:'bottom' },
-        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${eurM(c.parsed.y)}` } },
-      },
-    },
-  });
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function spreadLabel(ms, bucketHours){
+  const d = new Date(ms);
+  const day = `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]}`;
+  if (bucketHours < 24) return `${day} ${String(d.getUTCHours()).padStart(2, '0')}:00`;
+  if (bucketHours >= 168) return `w/c ${day}`;
+  return day;
 }
 
-/* ============== green bond: Z-spread since pricing (vs peer) =========== */
-function buildSpreadChart(id, gb){
-  const h = gb.secondary.history;
+function buildSpreadChart(id, gb, timeframeKey){
+  const sec = gb.secondary;
+  const tf = (sec.timeframes || []).find(f => f.key === timeframeKey)
+          || (sec.timeframes || [{ key:'1D', hours:24 }])[0];
+  const r = resample(sec.series, tf.hours);
+  const labels = r.t.map(ms => spreadLabel(ms, tf.hours));
   const reoffer = gb.terms.spreadToMs;
+
+  const el = document.getElementById(id);
+  const existing = el && Chart.getChart(el);
+  if (existing){
+    existing.data.labels = labels;
+    existing.data.datasets[0].data = r.langford;
+    existing.data.datasets[1].data = r.peer;
+    existing.data.datasets[2].data = labels.map(() => reoffer);
+    existing.options.elements.point.radius = labels.length > 40 ? 0 : 3;
+    existing.update('none');
+    return existing;
+  }
+
   return mount(id, {
     type: 'line',
     data: {
-      labels: h.labels,
+      labels,
       datasets: [
-        {
-          label: 'Langford 4.000% 2031',
-          data: h.langfordSpread,
+        { label: 'Langford 4.000% 2031', data: r.langford,
           borderColor: tone('--c-teal'), backgroundColor: tone('--c-teal'),
-          borderWidth: 2.4, pointRadius: 3.5, pointHoverRadius: 5.5, tension: 0.2, fill: false,
-        },
-        {
-          label: gb.tradingView.comparison.peerLabel,
-          data: h.peerSpread,
+          borderWidth: 2.4, pointHoverRadius: 5, tension: 0.2, fill: false },
+        { label: gb.tradingView.comparison.peerLabel, data: r.peer,
           borderColor: tone('--c-orchid'), backgroundColor: tone('--c-orchid'),
-          borderWidth: 2, pointRadius: 3, tension: 0.2, fill: false,
-        },
-        {
-          label: 'Re-offer spread (+' + reoffer + 'bp)',
-          data: h.labels.map(() => reoffer),
+          borderWidth: 2, pointHoverRadius: 5, tension: 0.2, fill: false },
+        { label: 'Re-offer spread (+' + reoffer + 'bp)', data: labels.map(() => reoffer),
           borderColor: '#0C5C60', borderWidth: 1.3, borderDash: [5, 4],
-          pointRadius: 0, fill: false,
-        },
+          pointRadius: 0, pointHoverRadius: 0, fill: false },
       ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode:'index', intersect:false },
+      elements: { point: { radius: labels.length > 40 ? 0 : 3 } },
       scales: {
-        x: AXIS_X,
+        x: { ...AXIS_X, ticks: { ...AXIS_X.ticks, autoSkip: true, maxTicksLimit: 12 } },
+        /* no forced zero: the axis tracks the data, so a few basis points
+           of movement stay visible however long the history gets */
         y: { ...AXIS, ticks: { ...AXIS.ticks, callback: v => v + 'bp' } },
       },
       plugins: {

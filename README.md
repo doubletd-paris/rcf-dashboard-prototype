@@ -13,7 +13,7 @@ the quarterly report (31 March 2026).
 | **Debt Mix** | Donuts by instrument type, by lender, by currency and jurisdiction | `DATA.debtMix` |
 | **Maturity Profile** | Stacked bar of maturities by year and instrument, dual-axis LTV vs cost of debt, maturity ladder table | `DATA.maturity` |
 | **RCF** | The original RCF prototype — ledger, capacity bar, balance and rate charts — unchanged | `assets/rcf.js` |
-| **Green Bond** | Project Langford monitoring: executed term sheet, TradingView charts, spread since pricing, pricing build-up, use of proceeds, bridge-to-bond | `DATA.greenBond` |
+| **Green Bond** | Project Langford monitoring: executed term sheet, TradingView charts, spread since pricing, fund NAV and IFRS NAV mark-to-market | `DATA.greenBond` · `app.py` |
 | **Covenants & Headroom** | LTV and ICR gauges against configurable thresholds, facility-level headroom, bond incurrence tests | `DATA.covenants` |
 | **Market Dashboard** | Govvies, midswaps, credit indices, fund credit, commodities and equities with DoD / WoW / YTD moves | `app.py` · `DATA.marketBoard` |
 
@@ -43,6 +43,29 @@ TradingView is embedded through its **advanced-chart widget**, configured in
 If the widget cannot load — blocked script or unknown symbol — the panel shows a
 fallback card with the TradingView link rather than an empty box. The
 Chart.js "spread since pricing" panel below it does not depend on TradingView.
+
+**A live price cannot be read out of TradingView.** The widget is a
+cross-origin iframe, so the page cannot reach into it. Live secondary levels
+arrive through `get_market_data()` in `app.py` instead, in a `bond` block:
+they fill the levels strip, the spread chart, and seed the default yield on
+the mark-to-market section (a yield the user types always wins).
+
+### Mark-to-market
+
+`assets/mtm.js` prices the notes from a yield on Actual/Actual (ICMA) and
+shows both carrying bases:
+
+- **Fund NAV**, at fair value: cash raised less the dirty market value, with
+  issue costs expensed on day one.
+- **IFRS NAV**, at amortised cost: the effective interest rate is solved from
+  the term sheet (the rate discounting the contractual flows to the net
+  proceeds, 4.313%), giving the carrying amount, the unamortised issue costs
+  and discount still on the balance sheet, and the P&L split between cash
+  coupon and amortisation.
+
+The pricer is validated against the deal itself: at the 4.233% re-offer yield
+on the settlement date it returns a clean price of 98.9695 against the term
+sheet's 98.969% issue price.
 
 ## Files
 

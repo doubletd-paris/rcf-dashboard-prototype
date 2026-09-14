@@ -63,10 +63,7 @@ function buildSection(id){
     buildTrendChart('trendChart', DATA.maturity.trend);
   }
   if (id === 'green-bond'){
-    buildPricingChart('bondPricing', DATA.greenBond.pricing);
-    buildDonut('bondUseOfProceeds', DATA.greenBond.useOfProceeds);
-    buildBridgeChart('bridgeChart', DATA.greenBond.bridge);
-    buildSpreadChart('spreadChart', DATA.greenBond);
+    buildSpreadChart('spreadChart', DATA.greenBond, spreadTimeframe);
     if (MTM.repaint) MTM.repaint();
     mountTradingView('tvPrimary');
     mountTradingView('tvComparison');
@@ -186,10 +183,6 @@ function renderGreenBond(){
     { label:'Net proceeds',     value:t.netProceeds.toFixed(1),  unit:'€m', sub:'after ' + t.baseFees + '% base fees' },
   ].map(kpiCard).join('');
 
-  document.getElementById('bondPricingReadout').textContent =
-    `Mid-swaps ${t.midSwapRef}% + ${t.spreadToMs}bp = ${t.reofferYield}% re-offer yield · ` +
-    `${t.spreadToBenchmark}bp over ${t.benchmark}`;
-
   document.getElementById('tvPrimarySymbol').textContent = gb.tradingView.primary.symbol;
 
   /* --- term sheet, split across two panels --- */
@@ -240,19 +233,91 @@ function renderGreenBond(){
     ['Target market',       t.targetMarket],
   ])}</tbody>`;
 
-  /* --- where it trades --- */
-  const sec = gb.secondary;
-  const tightened = sec.spreadVsReoffer <= 0;
+  renderSecondaryLevels();
+  renderSpreadTimeframes();
+}
+
+/* ------------------- secondary levels, both bonds ---------------------- */
+function renderSecondaryLevels(){
+  const gb = DATA.greenBond, sec = gb.secondary;
+  const vsReoffer = sec.langford.zSpread - gb.terms.spreadToMs;
+  const row = (label, o) => `
+    <div><div class="l">${label} price</div><div class="v">${Number(o.price).toFixed(3)}</div></div>
+    <div><div class="l">${label} yield</div><div class="v">${Number(o.yield).toFixed(2)}%</div></div>
+    <div><div class="l">${label} Z-spread</div><div class="v">${Math.round(o.zSpread)}bp</div></div>`;
+
   document.getElementById('secondaryStrip').innerHTML = `
-    <div class="gauge-meta" style="grid-template-columns:repeat(2,1fr)">
-      <div><div class="l">Price</div><div class="v">${sec.price.toFixed(3)}</div></div>
-      <div><div class="l">Yield</div><div class="v">${sec.yield.toFixed(2)}%</div></div>
-      <div><div class="l">Z-spread</div><div class="v">${sec.zSpread}bp</div></div>
-      <div><div class="l">vs re-offer</div>
-        <div class="v"><span class="pill ${tightened ? 'ok' : 'watch'}">${sec.spreadVsReoffer > 0 ? '+' : ''}${sec.spreadVsReoffer}bp</span></div></div>
+    <div class="gauge-meta" style="grid-template-columns:repeat(3,1fr)">
+      ${row('Langford', sec.langford)}
+      ${row('Peer', sec.peer)}
+      <div><div class="l">Langford vs re-offer</div>
+        <div class="v"><span class="pill ${vsReoffer <= 0 ? 'ok' : 'watch'}">${vsReoffer > 0 ? '+' : ''}${Math.round(vsReoffer)}bp</span></div></div>
+      <div><div class="l">Pick-up vs peer</div>
+        <div class="v">${Math.round(sec.langford.zSpread - sec.peer.zSpread)}bp</div></div>
+      <div><div class="l">As at</div><div class="v" style="font-size:12.5px">${sec.asOf}</div></div>
     </div>`;
+
   document.getElementById('secondaryCaption').innerHTML =
-    `Source: <b>${sec.source}</b> · as at ${sec.asOf}. Indicative mid levels, not executable.`;
+    `Source: <b>${sec.source}</b>. Indicative mid levels, not executable. TradingView cannot be read from this page —
+     it is a cross-origin widget — so live levels arrive through <code>app.py → get_market_data()</code>.`;
+}
+
+/* ------------------- spread chart timeframe buttons -------------------- */
+let spreadTimeframe = null;
+
+function renderSpreadTimeframes(){
+  const sec = DATA.greenBond.secondary;
+  const host = document.getElementById('spreadTimeframes');
+  if (!host) return;
+  if (!spreadTimeframe) spreadTimeframe = sec.defaultTimeframe || (sec.timeframes[0] || {}).key;
+
+  host.innerHTML = (sec.timeframes || []).map(f =>
+    `<button type="button" class="btn ${f.key === spreadTimeframe ? 'primary' : ''}" data-tf="${f.key}">${f.label}</button>`).join('');
+
+  if (!host.dataset.bound){
+    host.dataset.bound = '1';
+    host.addEventListener('click', e => {
+      const btn = e.target.closest('.btn');
+      if (!btn) return;
+      spreadTimeframe = btn.dataset.tf;
+      renderSpreadTimeframes();
+      buildSpreadChart('spreadChart', DATA.greenBond, spreadTimeframe);
+    });
+  }
+  const stamp = document.getElementById('spreadStamp');
+  if (stamp){
+    const f = (sec.timeframes || []).find(x => x.key === spreadTimeframe);
+    stamp.textContent = `${f ? f.label : ''} · ${sec.series.langfordZ.length} marks since pricing`;
+  }
+}
+
+/* --------------------------- live bond levels --------------------------
+   One endpoint feeds the whole dashboard. When it returns a `bond` block,
+   the secondary levels, the spread series and the mark-to-market default
+   yield all come from it; otherwise the placeholders in data.js stand.
+   ---------------------------------------------------------------------- */
+async function loadBondFeed(){
+  let bond = null;
+  try {
+    const res = await fetch('/api/market-data', { headers: { Accept:'application/json' } });
+    if (res.ok){
+      const j = await res.json();
+      if (j && j.bond) bond = j.bond;
+    }
+  } catch (e) { /* static deployment — placeholders stand */ }
+  if (!bond) return;
+
+  const sec = DATA.greenBond.secondary;
+  if (bond.langford) Object.assign(sec.langford, bond.langford);
+  if (bond.peer) Object.assign(sec.peer, bond.peer);
+  if (bond.series) sec.series = bond.series;
+  if (bond.asOf) sec.asOf = bond.asOf;
+  if (bond.source) sec.source = bond.source;
+
+  renderSecondaryLevels();
+  renderSpreadTimeframes();
+  if (charts.spreadChart) buildSpreadChart('spreadChart', DATA.greenBond, spreadTimeframe);
+  if (MTM.applyLive && bond.langford) MTM.applyLive(bond.langford);
 }
 
 /* ---------------------------- TradingView ------------------------------
@@ -479,6 +544,7 @@ function boot(){
   renderMaturityTable();
   renderGreenBond();
   renderMtm();
+  loadBondFeed();
   renderBondCovenants();
   renderBoard();
   initCovenantControls();
