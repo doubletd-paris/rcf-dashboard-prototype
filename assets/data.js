@@ -189,8 +189,11 @@ const DATA = {
         layoutUrl: 'https://www.tradingview.com/chart/UEOcSm90/?symbol=XS3498808651',
       },
       comparison: {
-        symbol: 'XS3498808651',
-        compareSymbols: [],       // e.g. [{ symbol: 'XS2XXXXXXXXX', position: 'SameScale' }]
+        symbol: 'XS3498808651',                                   // Langford, the base series
+        compareSymbols: [
+          { symbol: 'XS3333155052', position: 'SameScale' },      // Hines comparable, July 2026
+        ],
+        peerIsin: 'XS3333155052',
         peerLabel: 'Hines EUR benchmark (July 2026)',
         title: 'Langford vs Hines comparable',
         layoutUrl: 'https://www.tradingview.com/chart/UEOcSm90/',

@@ -258,7 +258,8 @@ function renderSecondaryLevels(){
     </div>`;
 
   document.getElementById('secondaryCaption').innerHTML =
-    `Source: <b>${sec.source}</b>. Indicative mid levels, not executable. TradingView cannot be read from this page —
+    `Peer is ${DATA.greenBond.tradingView.comparison.peerLabel}, ${DATA.greenBond.tradingView.comparison.peerIsin}.
+     Source: <b>${sec.source}</b>. Indicative mid levels, not executable. TradingView cannot be read from this page —
      it is a cross-origin widget — so live levels arrive through <code>app.py → get_market_data()</code>.`;
 }
 
@@ -339,7 +340,7 @@ function mountTradingView(hostId){
 
   host.innerHTML = `
     <div class="tv-head">
-      <span class="tv-symbol">${cfg.title} · <b>${cfg.symbol}</b></span>
+      <span class="tv-symbol">${cfg.title} · <b>${[cfg.symbol, ...(cfg.compareSymbols || []).map(c => c.symbol)].join('</b> vs <b>')}</b></span>
       <a class="btn" href="${cfg.layoutUrl}" target="_blank" rel="noopener noreferrer">Open in TradingView ↗</a>
     </div>
     <div class="tv-frame tradingview-widget-container">
